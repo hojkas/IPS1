@@ -7,6 +7,7 @@
 #include "mmal.h"
 #include <sys/mman.h> // mmap
 #include <stdbool.h> // bool
+#include <assert.h> //used for assert
 
 #ifdef NDEBUG
 /**
@@ -78,8 +79,9 @@ size_t allign_page(size_t size)
 static
 Arena *arena_alloc(size_t req_size)
 {
-    size_t al_size = allign_page(req_size);
-    Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    //TODO maybe different size taking into account the space taken by arena header? at least assert
+    size_t al_size = allign_page(req_size+sizeof(Arena)+sizeof(Header));
+    Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE, -1, 0);
 
     if(arena == MAP_FAILED) return NULL;
 
@@ -103,9 +105,10 @@ Arena *arena_alloc(size_t req_size)
 static
 void hdr_ctor(Header *hdr, size_t size)
 {
-    // FIXME
-    (void)hdr;
-    (void)size;
+    assert (size > 0);
+    hdr->size = size;
+    hdr->asize = 0;
+    hdr->next = NULL;
 }
 
 /**
@@ -135,10 +138,20 @@ void hdr_ctor(Header *hdr, size_t size)
 static
 Header *hdr_split(Header *hdr, size_t req_size)
 {
-    // FIXME
-    (void)hdr;
-    (void)req_size;
-    return NULL;
+    assert ((req_size % PAGE_SIZE) != 0);
+    assert (hdr != NULL);
+    assert (hdr->size >= req_size + sizeof(Header));//didn't make sense with 2*sizeof(header)
+
+    Header *created_hdr = hdr; //lets him point at the same adress as hdr
+    created_hdr = created_hdr + sizeof(Header) + req_size; //lets created_hdr be at the right adress After
+    //hdr's data and hdr header
+    hdr_ctor(created_hdr, (hdr->size - req_size - sizeof(Header)));
+
+    created_hdr->next = hdr->next;
+    hdr->next = created_hdr;
+    hdr->size = req_size;
+
+    return created_hdr;
 }
 
 /**
