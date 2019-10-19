@@ -1,0 +1,98 @@
+void +mmaloc()
+-bude potřeba spousta dalších pomocných fcí
+-hodnocení - čím dál náročnější testy, podle toho, v který moment to spadne, budou body 
+
+
+vytvoříme arénu
+----------------------------------------
+|IIII|                                  |
+----------------------------------------
+^ sem ukazuje pointer
+
+IIII <- header
+v okýnkách po řadě next, size, asize (size je velikost zbytku arény)
+
+reálně
+-------------------------------------------
+| ... |IIII| ........ |IIII| .. |IIII| ... |
+-------------------------------------------
+každá hlavička udává info o datech za ní
+
+------------------------------------
+|IIII| ... |IIII| ................. |
+------------------------------------
+	  <---> size prvni hlavicky
+				 <-----------------> size druhe hlavicky
+size >= asize
+asize - kolik je po nás požadováno, aby bylo alokované
+size - velikost, kolik je reálně alokováno
+
+|...... ~~~~|
+ <----> požadovaný prostor na data (asize)
+ <---------> vytvořený prostor (size)
+ 
+ skutečnou velikost size získáme pomocí funkce align (tu musíme vytvořit, libovolná délka)
+ (obvykle se to zarovnává na délku největší ... položky struktury? struktury? NEBO na velikost v našem případě headeru (8B?)
+ -> dělejme align na sizeof(ukazatel)!!!
+
+pokud je realloc a nevejde se na místo -> najít jiné místo, kde je volno, přesunout data, vrátit jiný ukazatel na nové místo
+
+stdlib.h je zakázano krom NULL
+
+mmap something (IOS PTSD incoming)
+
+asi dojdeme k momentu, kdy bude víc arén, je potřeba je nějak označkovat, vytvořit mmapem (maybe?)
+-> na začátku každé arény bude hlavička arény, na konci informace, kde je další aréna -> arény budou v našem případě jednosměrně vázaný seznam (na konci poslední arény NULL)
+--------------------------------------------------
+|arenaheader| ...blabla.....|ukazatelnadalsiarenu|
+--------------------------------------------------
+v tomto úkolu nemusíme arény dealokovat (reálně by to tak fungovalo, když je aréna prázdná, ale my se s tím srát nemusíme)
+
+-------------------------------------------------
+|IIII|..b1..|IIII|...b2...|IIII|.......b3.......|
+-------------------------------------------------
+b1, b2, b3 - bloky 1, 2, 3
+
+dealokace
+např. b1 asize = 0, dealokuji b2
+pokud zjistím, že dva bloky po sobě mají velikost 0 (asize == 0) -> zničíme druhý blok, hlavičku prvního bloku upravíme, aby size pokrývala celou oblast
+pokud dealokuji b3, vymažu asize, nic se neděje dál
+pokud by v tomto momentě byla dealokovaná b2, zruší se hlavičky b2, b3, vše se "slepí" do b1 (again, úprava size, asize je 0)
+
+-> pro toto potřebujeme umět najít předchozí blok (na kontrolu, jestli taky není prázdný) -> udělat si fci najít předka (a následující taky pro ten samý důvod)
+- bude potřeba i umět hledat v jiné aréně (pravý soused může být až v ní)
+
+-> případy - mám napravo souseda co je volný a zároveň ve stejné aréně? pozor, pokud není ve stejné aréně, nejde to slepit (asi? tohle jsem trochu nepobrala)
+
+budeme implementovat best fit
+(first fit -> první volný prostor co stačí)
+best fit -> takový volný blok, který je o nejmenší kus větší než to co potřebujeme
+-------------------------------------
+|vvvvvv|,|vv|,,,,|vvvvv|,,,|vvvvvvvvv| v - volné místo, , - obsazené
+-------------------------------------
+potřebujeme o vel. 4 -> i když by vyhovovalo už první místo, použijeme to třetí, protože je jen o 2 větší, než chceme, což je best fit
+
+můžeme ve dvojici - odevzdá každý stejný kód, na začátek //xlogin00 obou dvou (ať není plagiát)
+(kdyby bylo jiné skóre u obou, jde se na průměr)
+
+v---- first arena
+----------------------------------------------
+|A-header|data-header|XXXXXXX|data-header|XXX|
+----------------------------------------------
+				      ^--- vrácený pointer na alokovaná data
+
+(více obrázků přímo v test souboru, nestíhám to obkreslovat)
+
+header
+	header *next;
+	size_t size;
+	size_t asize;
+
+arena
+	arena *next;
+	size_t size; <- velikost areny
+	
+tuna funkcí, popsáno v kostře (at least I fucking hope so)
+
+
+
