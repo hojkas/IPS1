@@ -80,6 +80,7 @@ static
 Arena *arena_alloc(size_t req_size)
 {
     //TODO maybe different size taking into account the space taken by arena header? at least assert
+    //deal with MAP_ANONYMOUS stuff
     size_t al_size = allign_page(req_size+sizeof(Arena)+sizeof(Header));
     Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE, -1, 0);
 
@@ -140,7 +141,8 @@ Header *hdr_split(Header *hdr, size_t req_size)
 {
     assert ((req_size % PAGE_SIZE) != 0);
     assert (hdr != NULL);
-    assert (hdr->size >= req_size + sizeof(Header));//didn't make sense with 2*sizeof(header)
+    assert (hdr->size >= req_size + 2*sizeof(Header));
+    //could be just 1*size of header, but that would limit the header to size 0 - why do that?
 
     Header *created_hdr = hdr; //lets him point at the same adress as hdr
     created_hdr = created_hdr + sizeof(Header) + req_size; //lets created_hdr be at the right adress After
@@ -163,9 +165,9 @@ Header *hdr_split(Header *hdr, size_t req_size)
 static
 bool hdr_can_merge(Header *left, Header *right)
 {
-    // FIXME
-    (void)left;
-    (void)right;
+    assert(left->next == right);
+    if(left->asize == 0 && right->asize == 0 && (left + sizeof(Header) + left->size) == right)
+      return true; //the last condition should mean the blocks are in the same arena
     return false;
 }
 
@@ -177,9 +179,9 @@ bool hdr_can_merge(Header *left, Header *right)
 static
 void hdr_merge(Header *left, Header *right)
 {
-    (void)left;
-    (void)right;
-    // FIXME
+    assert(left->next == right);
+    left->next = right->next;
+    left->size = left->size + right->size + sizeof(Header);
 }
 
 /**
