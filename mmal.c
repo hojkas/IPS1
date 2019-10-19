@@ -25,7 +25,7 @@ struct header {
     size_t size;
 
     /**
-     * Size of block in bytes allocated for program. asize=0 means the block 
+     * Size of block in bytes allocated for program. asize=0 means the block
      * is not used by a program.
      */
     size_t asize;
@@ -58,8 +58,7 @@ Arena *first_arena = NULL;
 static
 size_t allign_page(size_t size)
 {
-    // FIXME
-    (void)size;
+    size = ((size - 1) / PAGE_SIZE + 1) * PAGE_SIZE; //counts wrong for <= 0, but can those numbers get in here?
     return size;
 }
 
@@ -79,9 +78,14 @@ size_t allign_page(size_t size)
 static
 Arena *arena_alloc(size_t req_size)
 {
-    // FIXME
-    (void)req_size;
-    return NULL;
+    size_t al_size = allign_page(req_size);
+    Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+    if(arena == MAP_FAILED) return NULL;
+
+    arena->next = NULL;
+    arena->size = req_size;
+    return arena;
 }
 
 /**
