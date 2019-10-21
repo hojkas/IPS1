@@ -57,18 +57,10 @@ Arena *first_arena = NULL;
  * Return size alligned to PAGE_SIZE
  */
 static
-size_t allign_page(size_t size)
+size_t align_page(size_t size)
 {
     size_t new_size = ((size - 1) / PAGE_SIZE + 1) * PAGE_SIZE; //counts wrong for <= 0, but can those numbers get in here?
     return new_size;
-}
-
-static
-size_t allign_data(size_t size)
-{
-  if(size == 0) return size;
-  size_t new_size = ((size - 1) / sizeof(char *) + 1) * sizeof(char *); //aligns to size of pointer
-  return new_size;
 }
 
 /**
@@ -89,7 +81,7 @@ Arena *arena_alloc(size_t req_size)
 {
     //TODO maybe different size taking into account the space taken by arena header? at least assert
     //deal with MAP_ANONYMOUS stuff
-    size_t al_size = allign_page(req_size+sizeof(Arena)+sizeof(Header));
+    size_t al_size = align_page(req_size+sizeof(Arena)+sizeof(Header));
     Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE, -1, 0);
 
     if(arena == MAP_FAILED) return NULL;
@@ -174,7 +166,7 @@ void hdr_ctor(Header *hdr, size_t size)
 static
 Header *hdr_split(Header *hdr, size_t req_size)
 {
-    assert ((req_size % PAGE_SIZE) != 0);
+    //assert ((req_size % PAGE_SIZE) != 0); TODO uncomment
     assert (hdr != NULL);
     assert (hdr->size >= req_size + 2*sizeof(Header));
     //could be just 1*size of header, but that would limit the header to size 0 - why do that?
@@ -224,7 +216,7 @@ RETURNS NULL if no fit was found
 */
 Header *best_fit(size_t req_size)
 {
-  //TODO take in account if header has 0 asize!!!!!!!!
+  //TODOO - chybí zarovnání na pages
   assert(first_arena != NULL);
   assert(req_size > 0);
 
@@ -265,6 +257,7 @@ void *mmalloc(size_t size)
 
   if(first_arena == NULL) {
     first_arena = arena_alloc(size);
+    if(first_arena == NULL) return NULL; //alocation failed
     hdr_ctor(find_first_header(), size);
   }
   Header *aloc_here = best_fit(size);
@@ -272,6 +265,8 @@ void *mmalloc(size_t size)
     //no space found -> need new arena
     Arena *last_arena = find_last_arena();
     last_arena->next = arena_alloc(size);
+    if(last_arena->next == NULL) return NULL; //alocation failed
+
     last_arena = last_arena->next;
     hdr_ctor(find_first_in_arena(last_arena), size);
     Header *last_header = find_last_header();
@@ -284,10 +279,9 @@ void *mmalloc(size_t size)
   //with asize 0 OR header meant to be split to make that space)
 
   if(aloc_here->asize != 0) {
-    //needs header split
+    aloc_here = hdr_split(to_split, to_split->asize);
   }
-
-  return NULL; //delete later
+  return aloc_here;
 }
 
 /**
