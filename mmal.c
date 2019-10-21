@@ -9,6 +9,8 @@
 #include <stdbool.h> // bool
 #include <assert.h> //used for assert
 
+#include<stdio.h> //TODO delete
+
 #ifdef NDEBUG
 /**
  * The structure header encapsulates data of a single memory block.
@@ -51,6 +53,10 @@ struct arena {
 
 #endif
 
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS 0x20
+#endif
+
 Arena *first_arena = NULL;
 
 /**
@@ -81,8 +87,9 @@ Arena *arena_alloc(size_t req_size)
 {
     //TODO maybe different size taking into account the space taken by arena header? at least assert
     //deal with MAP_ANONYMOUS stuff
+
     size_t al_size = align_page(req_size+sizeof(Arena)+sizeof(Header));
-    Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE, -1, 0);
+    Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if(arena == MAP_FAILED) return NULL;
 
@@ -260,9 +267,12 @@ void *mmalloc(size_t size)
     if(first_arena == NULL) return NULL; //alocation failed
     hdr_ctor(find_first_header(), size);
   }
+
   Header *aloc_here = best_fit(size);
+
   if(aloc_here == NULL) {
     //no space found -> need new arena
+    printf("I got here and I shouldn't\n");
     Arena *last_arena = find_last_arena();
     last_arena->next = arena_alloc(size);
     if(last_arena->next == NULL) return NULL; //alocation failed
