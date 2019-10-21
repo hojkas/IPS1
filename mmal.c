@@ -59,8 +59,16 @@ Arena *first_arena = NULL;
 static
 size_t allign_page(size_t size)
 {
-    size = ((size - 1) / PAGE_SIZE + 1) * PAGE_SIZE; //counts wrong for <= 0, but can those numbers get in here?
-    return size;
+    new_size = ((size - 1) / PAGE_SIZE + 1) * PAGE_SIZE; //counts wrong for <= 0, but can those numbers get in here?
+    return new_size;
+}
+
+static
+size_t allign_data(size_t size)
+{
+  if(size == 0) return size;
+  new_size = ((size - 1) / sizeof(char *) + 1) * sizeof(char *); //aligns to size of pointer
+  return new_size;
 }
 
 /**
@@ -182,6 +190,35 @@ void hdr_merge(Header *left, Header *right)
     assert(left->next == right);
     left->next = right->next;
     left->size = left->size + right->size + sizeof(Header);
+}
+
+Header *best_fit(size_t req_size)
+{
+  assert(first_arena != NULL);
+  assert(req_size > 0);
+
+  Header *best_fit = NULL;
+  size_t extra;
+  Header *curr_hdr = first_arena + sizeof(Arena);
+
+  while(curr_hdr != NULL) {
+    if((curr_hdr->size - curr_hdr->asize) > (sizeof(Header) + req_size)) {
+      //je-li za aktualnim headerem dost mista na jeho data, dalsi header, pozadovana data
+      if(best_fit == NULL) {//prvni nalezeny blok
+        extra = curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size;
+        //stores extra space to extra
+        best_fit = curr_hdr;
+      }
+      else if((curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size) < extra) {
+        //already found fit before, but this is better fit
+        extra = curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size;
+        //stores extra space to extra
+        best_fit = curr_hdr;
+      }
+    }
+    curr_hdr = curr_hdr->next;
+  }
+  return best_fit;
 }
 
 /**
