@@ -99,6 +99,18 @@ Arena *arena_alloc(size_t req_size)
     return arena;
 }
 
+static
+Header *find_first()
+{
+  Header *first = first_arena + sizeof(Arena);
+  return first;
+}
+
+Header *find_last()
+{
+
+}
+
 /**
  * Header structure constructor (alone, not used block).
  * @param hdr       pointer to block metadata.
@@ -192,6 +204,9 @@ void hdr_merge(Header *left, Header *right)
     left->size = left->size + right->size + sizeof(Header);
 }
 
+/**
+RETURNS NULL if no fit was found
+*/
 Header *best_fit(size_t req_size)
 {
   assert(first_arena != NULL);
@@ -199,7 +214,7 @@ Header *best_fit(size_t req_size)
 
   Header *best_fit = NULL;
   size_t extra;
-  Header *curr_hdr = first_arena + sizeof(Arena);
+  Header *curr_hdr = find_first();
 
   while(curr_hdr != NULL) {
     if((curr_hdr->size - curr_hdr->asize) > (sizeof(Header) + req_size)) {
@@ -228,9 +243,7 @@ Header *best_fit(size_t req_size)
  */
 void *mmalloc(size_t size)
 {
-    // FIXME
-    (void)size;
-    return NULL;
+
 }
 
 /**
