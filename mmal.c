@@ -279,7 +279,7 @@ void *mmalloc(size_t size)
   //with asize 0 OR header meant to be split to make that space)
 
   if(aloc_here->asize != 0) {
-    aloc_here = hdr_split(to_split, to_split->asize);
+    aloc_here = hdr_split(aloc_here, aloc_here->asize);
   }
   return aloc_here;
 }
