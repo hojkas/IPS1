@@ -234,7 +234,7 @@ void debug_arenas()
     curr_arena = curr_arena->next;
   }
   printf("-----\nHeader debug:\n-----\n");
-  for(int i = 0; curr_header != NULL; i++) {
+  for(int i = 0; curr_header->next != find_first_header(); i++) {
     printf("%d. header - %ld, %ld, %p\n", i, curr_header->size, curr_header->asize, curr_header->next);
     curr_header = curr_header->next;
   }
@@ -329,7 +329,10 @@ void *mmalloc(size_t size)
     aloc_here = hdr_split(aloc_here, aloc_here->asize);
   }
   aloc_here->asize = size;
+
+  debug_arenas();
   hdr_split(aloc_here, aloc_here->asize);
+  printf("I didnt fail\n");
 
   return aloc_here;
 }

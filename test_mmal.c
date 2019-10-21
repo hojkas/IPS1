@@ -54,6 +54,7 @@ int main()
     // Mela by alokovat novou arenu, pripravit hlavicku v ni a prave jeden
     // blok.
     void *p1 = mmalloc(42);
+    printf("\n\ngot here");
     /**
      *   v----- first_arena
      *   +-----+------+----+------+----------------------------+
