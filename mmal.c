@@ -69,6 +69,7 @@ size_t align_page(size_t size)
  * Allocate a new arena using mmap.
  * @param req_size requested size in bytes. Should be alligned to PAGE_SIZE.
  * @return pointer to a new arena, if successfull. NULL if error.
+ * @pre req_size > sizeof(Arena) + sizeof(Header)
  */
 
 /**
@@ -81,8 +82,7 @@ size_t align_page(size_t size)
 static
 Arena *arena_alloc(size_t req_size)
 {
-    //TODO maybe different size taking into account the space taken by arena header? at least assert
-    //deal with MAP_ANONYMOUS stuff
+    assert(req_size > sizeof(Arena) + sizeof(Header));
 
     size_t al_size = req_size+sizeof(Arena);
     Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -92,6 +92,17 @@ Arena *arena_alloc(size_t req_size)
     arena->next = NULL;
     arena->size = al_size;
     return arena;
+}
+
+/**
+ * Appends a new arena to the end of the arena list.
+ * @param a     already allocated arena
+ */
+static
+void arena_append(Arena *a)
+{
+    // FIXME
+    (void)a;
 }
 
 static
@@ -104,6 +115,8 @@ Header *find_first_header()
 static
 Header *find_prev_header(Header *hdr)
 {
+  assert(first_arena != NULL);
+
   Header *curr_hdr = hdr;
   while(curr_hdr->next != hdr) curr_hdr = curr_hdr->next;
   return curr_hdr;
@@ -133,6 +146,7 @@ Arena *find_last_arena()
  * Header structure constructor (alone, not used block).
  * @param hdr       pointer to block metadata.
  * @param size      size of free block
+ * @pre size > 0
  */
 /**
  *   +-----+------+------------------------+----+
@@ -151,12 +165,29 @@ void hdr_ctor(Header *hdr, size_t size)
 }
 
 /**
- * Splits one block into two.
+ * Checks if the given free block should be split in two separate blocks.
+ * @param hdr       header of the free block
+ * @param size      requested size of data
+ * @return true if the block should be split
+ * @pre hdr->asize == 0
+ * @pre size > 0
+ */
+static
+bool hdr_should_split(Header *hdr, size_t size)
+{
+    // FIXME
+    (void)hdr;
+    (void)size;
+    assert(size > 0);
+    return false;
+}
+
+ /**
+ * Splits one block in two.
  * @param hdr       pointer to header of the big block
  * @param req_size  requested size of data in the (left) block.
- * @pre   (req_size % PAGE_SIZE) = 0
- * @pre   (hdr->size >= req_size + 2*sizeof(Header))
  * @return pointer to the new (right) block header.
+ * @pre   (hdr->size >= req_size + 2*sizeof(Header))
  */
 /**
  * Before:        |---- hdr->size ---------|
@@ -177,10 +208,7 @@ void hdr_ctor(Header *hdr, size_t size)
 static
 Header *hdr_split(Header *hdr, size_t req_size)
 {
-    //assert ((req_size % PAGE_SIZE) != 0); TODO uncomment
-    assert (hdr != NULL);
-    assert (hdr->size >= req_size + 2*sizeof(Header));
-    //could be just 1*size of header, but that would limit the header to size 0 - why do that?
+    assert(hdr->size >= req_size + 2*sizeof(Header));
 
     Header *created_hdr = hdr; //lets him point at the same adress as hdr
     created_hdr = created_hdr + sizeof(Header) + req_size; //lets created_hdr be at the right adress After
@@ -195,15 +223,19 @@ Header *hdr_split(Header *hdr, size_t req_size)
 }
 
 /**
- * Detect if two blocks adjacent blocks could be merged.
+ * Detect if two adjacent blocks could be merged.
  * @param left      left block
  * @param right     right block
  * @return true if two block are free and adjacent in the same arena.
+ * @pre left->next == right
+ * @pre left != right
  */
 static
 bool hdr_can_merge(Header *left, Header *right)
 {
     assert(left->next == right);
+    assert(left != right);
+
     if(left->asize == 0 && right->asize == 0 && (left + sizeof(Header) + left->size) == right)
       return true; //the last condition should mean the blocks are in the same arena
     return false;
@@ -213,11 +245,14 @@ bool hdr_can_merge(Header *left, Header *right)
  * Merge two adjacent free blocks.
  * @param left      left block
  * @param right     right block
+ * @pre left->next == right
+ * @pre left != right
  */
 static
 void hdr_merge(Header *left, Header *right)
 {
     assert(left->next == right);
+    assert(left != right);
     left->next = right->next;
     left->size = left->size + right->size + sizeof(Header);
 }
@@ -242,13 +277,17 @@ void debug_arenas()
 }
 
 /**
-RETURNS NULL if no fit was found
-*/
+ * Finds the free block that fits best to the requested size.
+ * @param size      requested size
+ * @return pointer to the header of the block or NULL if no block is available.
+ * @pre size > 0
+ */
 Header *best_fit(size_t req_size)
 {
   //TODOO - chybí zarovnání na pages
-  assert(first_arena != NULL);
   assert(req_size > 0);
+
+  if(first_arena == NULL) return NULL;
 
   Header *best_fit = NULL;
   size_t extra;
@@ -332,7 +371,6 @@ void *mmalloc(size_t size)
 
   debug_arenas();
   hdr_split(aloc_here, aloc_here->asize);
-  printf("I didnt fail\n");
 
   return aloc_here;
 }
