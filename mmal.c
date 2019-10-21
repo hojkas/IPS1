@@ -101,10 +101,18 @@ Header *find_first_header()
   return first;
 }
 
+static
+Header *find_prev_header(Header *hdr)
+{
+  Header *curr_hdr = hdr;
+  while(curr_hdr->next != hdr) curr_hdr = curr_hdr->next;
+  return curr_hdr;
+}
+
 Header *find_last_header()
 {
-  Header *last = find_first_header();
-  while(last->next != NULL) last = last->next;
+  Header *first = find_first_header();
+  Header *last = find_prev_header(first);
   return last;
 }
 
@@ -245,8 +253,9 @@ Header *best_fit(size_t req_size)
   Header *best_fit = NULL;
   size_t extra;
   Header *curr_hdr = find_first_header();
+  Header *first_hdr = curr_hdr;
 
-  while(curr_hdr != NULL) {
+  while(curr_hdr->next != first_hdr) {
     if(((curr_hdr->size - curr_hdr->asize) > (sizeof(Header) + req_size)) || (curr_hdr->asize == 0 && curr_hdr->size < req_size)) {
       //je-li za aktualnim headerem dost mista na jeho data, dalsi header, pozadovana data
       if(best_fit == NULL) {//prvni nalezeny blok
@@ -269,6 +278,12 @@ Header *best_fit(size_t req_size)
   return best_fit;
 }
 
+void add_size_to_first(Arena *arena)
+{
+  Header* first = find_first_in_arena(arena);
+  first->size = arena->size - sizeof(Arena) - sizeof(Header);
+}
+
 /**
  * Allocate memory. Use best-fit search of available block.
  * @param size      requested size for program
@@ -281,7 +296,10 @@ void *mmalloc(size_t size)
   if(first_arena == NULL) {
     first_arena = arena_alloc(al_size);
     if(first_arena == NULL) return NULL; //alocation failed
-    hdr_ctor(find_first_header(), al_size);
+    Header *first_hdr = find_first_header();
+    hdr_ctor(first_hdr, al_size);
+    add_size_to_first(first_arena);
+    first_hdr->next = first_hdr;
   }
 
   Header *aloc_here = best_fit(size); //tady chyba
@@ -295,9 +313,12 @@ void *mmalloc(size_t size)
 
     last_arena = last_arena->next;
     hdr_ctor(find_first_in_arena(last_arena), size);
+    add_size_to_first(last_arena);
+
     Header *last_header = find_last_header();
     last_header->next = find_first_in_arena(last_arena); //links header in new arena to prev last one
     last_header = last_header->next; //marks last_header as the last
+    last_header->next = find_first_header(); //links new header to first one, forming cycle
     aloc_here = last_header; //given that no space was adequate to get here, only place to alloc is new o
   }
 
@@ -307,6 +328,9 @@ void *mmalloc(size_t size)
   if(aloc_here->asize != 0) {
     aloc_here = hdr_split(aloc_here, aloc_here->asize);
   }
+  aloc_here->asize = size;
+  hdr_split(aloc_here, aloc_here->asize);
+
   return aloc_here;
 }
 
