@@ -59,7 +59,7 @@ Arena *first_arena = NULL;
 static
 size_t allign_page(size_t size)
 {
-    new_size = ((size - 1) / PAGE_SIZE + 1) * PAGE_SIZE; //counts wrong for <= 0, but can those numbers get in here?
+    size_t new_size = ((size - 1) / PAGE_SIZE + 1) * PAGE_SIZE; //counts wrong for <= 0, but can those numbers get in here?
     return new_size;
 }
 
@@ -95,20 +95,29 @@ Arena *arena_alloc(size_t req_size)
     if(arena == MAP_FAILED) return NULL;
 
     arena->next = NULL;
-    arena->size = req_size;
+    arena->size = al_size;
     return arena;
 }
 
 static
-Header *find_first()
+Header *find_first_header()
 {
   Header *first = first_arena + sizeof(Arena);
   return first;
 }
 
-Header *find_last()
+Header *find_last_header()
 {
+  Header *last = find_first_header;
+  while(last->next != NULL) last = last->next;
+  return last;
+}
 
+Arena *find_last_arena()
+{
+  Arena *last = first_arena;
+  while(last->next != NULL) last = last->next;
+  return last;
 }
 
 /**
@@ -209,12 +218,13 @@ RETURNS NULL if no fit was found
 */
 Header *best_fit(size_t req_size)
 {
+  //TODO take in account if header has 0 asize!!!!!!!!
   assert(first_arena != NULL);
   assert(req_size > 0);
 
   Header *best_fit = NULL;
   size_t extra;
-  Header *curr_hdr = find_first();
+  Header *curr_hdr = find_first_header();
 
   while(curr_hdr != NULL) {
     if((curr_hdr->size - curr_hdr->asize) > (sizeof(Header) + req_size)) {
@@ -243,6 +253,32 @@ Header *best_fit(size_t req_size)
  */
 void *mmalloc(size_t size)
 {
+  assert(size > 0);
+
+  if(first_arena == NULL) {
+    first_arena = arena_alloc(size);
+    hdr_ctor((first_arena + sizeof(Arena)), size);
+  }
+  Header *aloc_here = best_fit(size);
+  if(aloc_here == NULL) {
+    //no space found -> need new arena
+    Arena *last_arena = find_last_arena;
+    last_arena->next = arena_alloc(size);
+    last_arena = last_arena->next;
+    hdr_ctor((last_arena + sizeof(Arena)), size);
+    Header *last_header = find_last_header();
+    last_header->next = last_arena + sizeof(Arena); //links header in new arena to prev last one
+    last_header = last_header->next; //marks last_header as the last
+    aloc_here = last_header; //given that no space was adequate to get here, only place to alloc is new o
+  }
+
+  //at this point, we have aloc_here header where we want to aloc (can be new header
+  //with asize 0 OR header meant to be split to make that space)
+
+  if(aloc_here->asize != 0) {
+    //needs header split
+  }
+  
 
 }
 
