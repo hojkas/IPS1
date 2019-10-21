@@ -53,10 +53,6 @@ struct arena {
 
 #endif
 
-#ifndef MAP_ANONYMOUS
-#define MAP_ANONYMOUS 0x20
-#endif
-
 Arena *first_arena = NULL;
 
 /**
@@ -88,7 +84,7 @@ Arena *arena_alloc(size_t req_size)
     //TODO maybe different size taking into account the space taken by arena header? at least assert
     //deal with MAP_ANONYMOUS stuff
 
-    size_t al_size = align_page(req_size+sizeof(Arena)+sizeof(Header));
+    size_t al_size = req_size+sizeof(Arena);
     Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if(arena == MAP_FAILED) return NULL;
@@ -218,6 +214,25 @@ void hdr_merge(Header *left, Header *right)
     left->size = left->size + right->size + sizeof(Header);
 }
 
+//TODO delete
+void debug_arenas()
+{
+  Header *curr_header = find_first_header();
+  Arena *curr_arena = first_arena;
+  printf("------\n");
+  printf("Arena debug:\n------\n");
+  for(int i = 0; curr_arena != NULL; i++) {
+    printf("%d. arena - %ld\n", i, curr_arena->size);
+    curr_arena = curr_arena->next;
+  }
+  printf("-----\nHeader debug:\n-----\n");
+  for(int i = 0; curr_header != NULL; i++) {
+    printf("%d. header - %ld, %ld, %p\n", i, curr_header->size, curr_header->asize, curr_header->next);
+    curr_header = curr_header->next;
+  }
+  printf("------\n");
+}
+
 /**
 RETURNS NULL if no fit was found
 */
@@ -250,6 +265,7 @@ Header *best_fit(size_t req_size)
     }
     curr_hdr = curr_hdr->next;
   }
+
   return best_fit;
 }
 
@@ -261,18 +277,18 @@ Header *best_fit(size_t req_size)
 void *mmalloc(size_t size)
 {
   assert(size > 0);
-
+  size_t al_size = align_page(size);
   if(first_arena == NULL) {
-    first_arena = arena_alloc(size);
+    first_arena = arena_alloc(al_size);
     if(first_arena == NULL) return NULL; //alocation failed
-    hdr_ctor(find_first_header(), size);
+    hdr_ctor(find_first_header(), al_size);
   }
 
-  Header *aloc_here = best_fit(size);
+  Header *aloc_here = best_fit(size); //tady chyba
 
   if(aloc_here == NULL) {
     //no space found -> need new arena
-    printf("I got here and I shouldn't\n");
+
     Arena *last_arena = find_last_arena();
     last_arena->next = arena_alloc(size);
     if(last_arena->next == NULL) return NULL; //alocation failed
