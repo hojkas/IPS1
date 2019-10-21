@@ -54,7 +54,6 @@ int main()
     // Mela by alokovat novou arenu, pripravit hlavicku v ni a prave jeden
     // blok.
     void *p1 = mmalloc(42);
-    printf("\n\ngot here");
     /**
      *   v----- first_arena
      *   +-----+------+----+------+----------------------------+
@@ -65,7 +64,7 @@ int main()
     assert(first_arena != NULL);
     assert(first_arena->next == NULL);
     assert(first_arena->size > 0);
-    //assert(first_arena->size <= PAGE_SIZE);
+    assert(first_arena->size <= PAGE_SIZE);
     Header *h1 = (Header*)(&first_arena[1]);
     Header *h2 = h1->next;
     assert(h1->asize == 42);
