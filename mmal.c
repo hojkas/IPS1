@@ -67,7 +67,7 @@ static
 size_t allign_data(size_t size)
 {
   if(size == 0) return size;
-  new_size = ((size - 1) / sizeof(char *) + 1) * sizeof(char *); //aligns to size of pointer
+  size_t new_size = ((size - 1) / sizeof(char *) + 1) * sizeof(char *); //aligns to size of pointer
   return new_size;
 }
 
@@ -102,15 +102,21 @@ Arena *arena_alloc(size_t req_size)
 static
 Header *find_first_header()
 {
-  Header *first = first_arena + sizeof(Arena);
+  Header *first = (void *) first_arena + sizeof(Arena);
   return first;
 }
 
 Header *find_last_header()
 {
-  Header *last = find_first_header;
+  Header *last = find_first_header();
   while(last->next != NULL) last = last->next;
   return last;
+}
+
+Header *find_first_in_arena(Arena *arena)
+{
+  Header *first_in_arena = (void *) arena + sizeof(Arena);
+  return first_in_arena;
 }
 
 Arena *find_last_arena()
@@ -227,16 +233,18 @@ Header *best_fit(size_t req_size)
   Header *curr_hdr = find_first_header();
 
   while(curr_hdr != NULL) {
-    if((curr_hdr->size - curr_hdr->asize) > (sizeof(Header) + req_size)) {
+    if(((curr_hdr->size - curr_hdr->asize) > (sizeof(Header) + req_size)) || (curr_hdr->asize == 0 && curr_hdr->size < req_size)) {
       //je-li za aktualnim headerem dost mista na jeho data, dalsi header, pozadovana data
       if(best_fit == NULL) {//prvni nalezeny blok
-        extra = curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size;
+        if(curr_hdr->asize == 0) extra = curr_hdr->size;
+        else extra = curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size;
         //stores extra space to extra
         best_fit = curr_hdr;
       }
-      else if((curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size) < extra) {
+      else if(((curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size) < extra) || (curr_hdr->asize == 0 && (curr_hdr->size - req_size) < extra)) {
         //already found fit before, but this is better fit
-        extra = curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size;
+        if(curr_hdr->asize == 0) extra = curr_hdr->size;
+        else extra = curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size;
         //stores extra space to extra
         best_fit = curr_hdr;
       }
@@ -257,17 +265,17 @@ void *mmalloc(size_t size)
 
   if(first_arena == NULL) {
     first_arena = arena_alloc(size);
-    hdr_ctor((first_arena + sizeof(Arena)), size);
+    hdr_ctor(find_first_header(), size);
   }
   Header *aloc_here = best_fit(size);
   if(aloc_here == NULL) {
     //no space found -> need new arena
-    Arena *last_arena = find_last_arena;
+    Arena *last_arena = find_last_arena();
     last_arena->next = arena_alloc(size);
     last_arena = last_arena->next;
-    hdr_ctor((last_arena + sizeof(Arena)), size);
+    hdr_ctor(find_first_in_arena(last_arena), size);
     Header *last_header = find_last_header();
-    last_header->next = last_arena + sizeof(Arena); //links header in new arena to prev last one
+    last_header->next = find_first_in_arena(last_arena); //links header in new arena to prev last one
     last_header = last_header->next; //marks last_header as the last
     aloc_here = last_header; //given that no space was adequate to get here, only place to alloc is new o
   }
@@ -278,8 +286,8 @@ void *mmalloc(size_t size)
   if(aloc_here->asize != 0) {
     //needs header split
   }
-  
 
+  return NULL; //delete later
 }
 
 /**
