@@ -290,9 +290,9 @@ void debug_arenas()
     printf("%d. arena - %ld\n", i, curr_arena->size);
     curr_arena = curr_arena->next;
   }
-  printf("-----\nHeader debug:\n-----\n");
-  for(int i = 0; (curr_header->next != find_first_header()) || i == 0; i++) {
-    printf("%d. header - %ld, %ld, %p\n", i, curr_header->size, curr_header->asize, curr_header->next);
+  printf("-----\nHeader debug: (size, asize, it, next)\n-----\n");
+  for(int i = 0; (curr_header != find_first_header()) || i == 0; i++) {
+    printf("%d. header - %ld, %ld, %p, %p\n", i, curr_header->size, curr_header->asize, curr_header, curr_header->next);
     curr_header = curr_header->next;
   }
   printf("------\n");
@@ -367,6 +367,7 @@ void *mmalloc(size_t size)
       arena_append(new_arena);
       Header *first_in_new = (void *) new_arena + sizeof(Arena);
       Header *last_hdr = find_last_header();
+      hdr_ctor(first_in_new, new_arena->size - sizeof(Arena) - sizeof(Header));
 
       //linking new header to the rest
       if(last_hdr == NULL) {
@@ -384,6 +385,8 @@ void *mmalloc(size_t size)
 
     if(hdr_should_split(best_fit_hdr, size)) hdr_split(best_fit_hdr, size);
     best_fit_hdr->asize = size;
+
+    debug_arenas();
 
     return best_fit_hdr;
 }
