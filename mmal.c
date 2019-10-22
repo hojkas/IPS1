@@ -375,7 +375,7 @@ void *mmalloc(size_t size)
   }
   aloc_here->asize = size;
 
-  debug_arenas();
+  hdr_split(aloc_here, aloc_here->asize);
 
   return aloc_here;
 }
