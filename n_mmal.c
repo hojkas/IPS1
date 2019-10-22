@@ -10,6 +10,9 @@
 #include <assert.h> // assert
 #include <string.h> // memcpy
 
+//TODO delete
+#include<stdio.h>
+
 #ifdef NDEBUG
 /**
  * The structure header encapsulates data of a single memory block.
@@ -97,7 +100,7 @@ Arena *arena_alloc(size_t req_size)
 {
     assert(req_size > sizeof(Arena) + sizeof(Header));
 
-    size_t al_size = align_page(req_size+sizeof(Arena)+sizeof(Header));
+    size_t al_size = allign_page(req_size+sizeof(Arena)+sizeof(Header));
     Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if(arena == MAP_FAILED) return NULL;
@@ -128,6 +131,7 @@ static
 Header *find_last_header()
 {
   Header *first = find_first_header();
+  if(first->next == NULL) return NULL; //for first header not yet inicialized
   Header *last = find_prev_header(first);
   return last;
 }
@@ -199,7 +203,7 @@ bool hdr_should_split(Header *hdr, size_t size)
     assert(hdr->asize == 0);
     assert(size > 0);
 
-    if(hdr->size - size - 2*sizeof(Header) >= 0) return true;
+    if(hdr->size >= size + 2*sizeof(Header)) return true;
     return false;
 }
 
@@ -306,7 +310,7 @@ Header *best_fit(size_t size)
   assert(size > 0);
   if(first_arena == NULL) return NULL;
 
-  Header *best_fit = NULL;
+  Header *best_fit_hdr = NULL;
   Header *first_hdr = find_first_header();
   Header *curr_hdr;
   size_t extra;
@@ -314,19 +318,19 @@ Header *best_fit(size_t size)
   do {
     if(curr_hdr->asize == 0) {
       //block is free, can be used for alocation
-      if(best_fit == NULL) {
-        best_fit = curr_hdr;
-        extra = curr_hdr->size - req_size;
+      if(best_fit_hdr == NULL) {
+        best_fit_hdr = curr_hdr;
+        extra = curr_hdr->size - size;
       }
-      else if(curr_hdr->size - req_size < extra) {
-        best_fit = curr_hdr;
-        extra = curr_hdr->size - req_size;
+      else if(curr_hdr->size - size < extra) {
+        best_fit_hdr = curr_hdr;
+        extra = curr_hdr->size - size;
       }
     }
     curr_hdr = curr_hdr->next;
   } while(curr_hdr != first_hdr);
 
-  return best_fit;
+  return best_fit_hdr;
 }
 
 /**
@@ -354,7 +358,34 @@ void *mmalloc(size_t size)
 {
     assert(size > 0);
 
-    Header *best_fit = best_fit(size);
+    Header *best_fit_hdr = best_fit(size);
+    if(best_fit_hdr == NULL) {
+      //no fit found, new arena needed
+      Arena *new_arena = arena_alloc(size);
+      if(new_arena == NULL) return NULL; //alocation failed
+
+      arena_append(new_arena);
+      Header *first_in_new = (void *) new_arena + sizeof(Arena);
+      Header *last_hdr = find_last_header();
+
+      //linking new header to the rest
+      if(last_hdr == NULL) {
+        //no linked headers yet
+        first_in_new->next = first_in_new;
+      }
+      else {
+        Header *first_hdr = find_first_header();
+        last_hdr->next = first_in_new;
+        first_in_new->next = first_hdr;
+      }
+      //marks new one as best fit
+      best_fit_hdr = first_in_new;
+    }
+
+    if(hdr_should_split(best_fit_hdr, size)) hdr_split(best_fit_hdr, size);
+    best_fit_hdr->asize = size;
+
+    return best_fit_hdr;
 }
 
 /**
