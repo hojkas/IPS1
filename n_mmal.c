@@ -100,7 +100,7 @@ Arena *arena_alloc(size_t req_size)
 {
     assert(req_size > sizeof(Arena) + sizeof(Header));
 
-    size_t al_size = allign_page(req_size+sizeof(Arena)+sizeof(Header));
+    size_t al_size = allign_page(req_size);
     Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if(arena == MAP_FAILED) return NULL;
