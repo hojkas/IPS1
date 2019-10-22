@@ -217,8 +217,7 @@ Header *hdr_split(Header *hdr, size_t req_size)
 {
     assert(hdr->size >= req_size + 2*sizeof(Header));
 
-    Header *created_hdr = hdr; //lets him point at the same adress as hdr
-    created_hdr = created_hdr + sizeof(Header) + req_size; //lets created_hdr be at the right adress After
+    Header *created_hdr = hdr + sizeof(Header) + req_size; //lets created_hdr be at the right adress After
     //hdr's data and hdr header
     hdr_ctor(created_hdr, (hdr->size - req_size - sizeof(Header)));
 
@@ -291,6 +290,34 @@ void debug_arenas()
  */
 Header *best_fit(size_t req_size)
 {
+  assert(size > 0);
+  if(first_arena == NULL) return NULL;
+
+  Header *best_fit = NULL;
+  Header *first_hdr = find_first_header();
+  Header *curr_hdr;
+  size_t extra;
+
+  do {
+    if(curr_hdr->asize == 0) {
+      //block is free, can be used for alocation
+      if(best_fit == NULL) {
+        best_fit = curr_hdr;
+        extra = curr_hdr->size - req_size;
+      }
+      else if(curr_hdr->size - req_size < extra) {
+        best_fit = curr_hdr;
+        extra = curr_hdr->size - req_size;
+      }
+    }
+    curr_hdr = curr_hdr->next;
+  } while(curr_hdr != first_hdr);
+
+  return best_fit;
+}
+/*TODO DELETE
+Header *best_fit(size_t req_size)
+{
   //TODOO - chybí zarovnání na pages
   assert(req_size > 0);
 
@@ -322,7 +349,7 @@ Header *best_fit(size_t req_size)
   } while(curr_hdr != first_hdr);
 
   return best_fit;
-}
+}*/
 
 void add_size_to_first(Arena *arena)
 {
@@ -376,6 +403,9 @@ void *mmalloc(size_t size)
   aloc_here->asize = size;
 
   hdr_split(aloc_here, aloc_here->asize);
+
+  debug_arenas();
+  //DOES WEIRD SHIT WITH HEADERS
 
   return aloc_here;
 }
