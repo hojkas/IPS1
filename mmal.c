@@ -94,17 +94,6 @@ Arena *arena_alloc(size_t req_size)
     return arena;
 }
 
-/**
- * Appends a new arena to the end of the arena list.
- * @param a     already allocated arena
- */
-static
-void arena_append(Arena *a)
-{
-    // FIXME
-    (void)a;
-}
-
 static
 Header *find_first_header()
 {
@@ -141,6 +130,24 @@ Arena *find_last_arena()
   while(last->next != NULL) last = last->next;
   return last;
 }
+
+
+/**
+ * Appends a new arena to the end of the arena list.
+ * @param a     already allocated arena
+ */
+static
+void arena_append(Arena *a)
+{
+    if(first_arena == NULL) {
+      first_arena = a;
+    }
+    else {
+      Arena *last_arena = find_last_arena();
+      last_arena->next = a;
+    }
+}
+
 
 /**
  * Header structure constructor (alone, not used block).
@@ -294,7 +301,7 @@ Header *best_fit(size_t req_size)
   Header *curr_hdr = find_first_header();
   Header *first_hdr = curr_hdr;
 
-  while(curr_hdr->next != first_hdr) {
+  do {
     if(((curr_hdr->size - curr_hdr->asize) > (sizeof(Header) + req_size)) || (curr_hdr->asize == 0 && curr_hdr->size < req_size)) {
       //je-li za aktualnim headerem dost mista na jeho data, dalsi header, pozadovana data
       if(best_fit == NULL) {//prvni nalezeny blok
@@ -312,7 +319,7 @@ Header *best_fit(size_t req_size)
       }
     }
     curr_hdr = curr_hdr->next;
-  }
+  } while(curr_hdr != first_hdr);
 
   return best_fit;
 }
@@ -345,7 +352,6 @@ void *mmalloc(size_t size)
 
   if(aloc_here == NULL) {
     //no space found -> need new arena
-
     Arena *last_arena = find_last_arena();
     last_arena->next = arena_alloc(size);
     if(last_arena->next == NULL) return NULL; //alocation failed
@@ -370,7 +376,6 @@ void *mmalloc(size_t size)
   aloc_here->asize = size;
 
   debug_arenas();
-  hdr_split(aloc_here, aloc_here->asize);
 
   return aloc_here;
 }
