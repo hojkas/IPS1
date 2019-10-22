@@ -386,7 +386,9 @@ void *mmalloc(size_t size)
     if(hdr_should_split(best_fit_hdr, size)) hdr_split(best_fit_hdr, size);
     best_fit_hdr->asize = size;
 
-    return best_fit_hdr;
+    void* p = (void *) best_fit_hdr + sizeof(Header);
+
+    return p;
 }
 
 /**
