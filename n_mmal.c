@@ -179,9 +179,10 @@ void arena_append(Arena *a)
 static
 void hdr_ctor(Header *hdr, size_t size)
 {
-    // FIXME
-    (void)hdr;
-    (void)size;
+    assert (size > 0);
+    hdr->size = size;
+    hdr->asize = 0;
+    hdr->next = NULL;
 }
 
 /**
@@ -195,10 +196,10 @@ void hdr_ctor(Header *hdr, size_t size)
 static
 bool hdr_should_split(Header *hdr, size_t size)
 {
-    // FIXME
-    (void)hdr;
-    (void)size;
+    assert(hdr->asize == 0);
     assert(size > 0);
+
+    if(hdr->size - size - 2*sizeof(Header) >= 0) return true;
     return false;
 }
 
@@ -228,10 +229,15 @@ bool hdr_should_split(Header *hdr, size_t size)
 static
 Header *hdr_split(Header *hdr, size_t req_size)
 {
-    // FIXME
-    (void)hdr;
-    (void)req_size;
-    return NULL;
+    assert (hdr->size >= req_size + 2*sizeof(Header));
+
+    Header *new_hdr = hdr + req_size + sizeof(Header);
+    hdr_ctor(new_hdr, (hdr->size - req_size - sizeof(Header)));
+    new_hdr->next = hdr->next;
+    hdr->next = new_hdr;
+    hdr->size = req_size;
+
+    return new_hdr;
 }
 
 /**
@@ -245,9 +251,11 @@ Header *hdr_split(Header *hdr, size_t req_size)
 static
 bool hdr_can_merge(Header *left, Header *right)
 {
-    // FIXME
-    (void)left;
-    (void)right;
+    assert(left->next == right);
+    assert(left != right);
+
+    if(left->asize == 0 && right->asize == 0 && (left + sizeof(Header) + left->size) == right)
+      return true; //the last condition should mean the blocks are in the same arena
     return false;
 }
 
@@ -261,9 +269,29 @@ bool hdr_can_merge(Header *left, Header *right)
 static
 void hdr_merge(Header *left, Header *right)
 {
-    (void)left;
-    (void)right;
-    // FIXME
+    assert(left->next == right);
+    assert(left != right);
+    left->next = right->next;
+    left->size = left->size + right->size + sizeof(Header);
+}
+
+//TODO delete
+void debug_arenas()
+{
+  Header *curr_header = find_first_header();
+  Arena *curr_arena = first_arena;
+  printf("------\n");
+  printf("Arena debug:\n------\n");
+  for(int i = 0; curr_arena != NULL; i++) {
+    printf("%d. arena - %ld\n", i, curr_arena->size);
+    curr_arena = curr_arena->next;
+  }
+  printf("-----\nHeader debug:\n-----\n");
+  for(int i = 0; (curr_header->next != find_first_header()) || i == 0; i++) {
+    printf("%d. header - %ld, %ld, %p\n", i, curr_header->size, curr_header->asize, curr_header->next);
+    curr_header = curr_header->next;
+  }
+  printf("------\n");
 }
 
 /**
@@ -275,9 +303,30 @@ void hdr_merge(Header *left, Header *right)
 static
 Header *best_fit(size_t size)
 {
-    // FIXME
-    (void)size;
-    return NULL;
+  assert(size > 0);
+  if(first_arena == NULL) return NULL;
+
+  Header *best_fit = NULL;
+  Header *first_hdr = find_first_header();
+  Header *curr_hdr;
+  size_t extra;
+
+  do {
+    if(curr_hdr->asize == 0) {
+      //block is free, can be used for alocation
+      if(best_fit == NULL) {
+        best_fit = curr_hdr;
+        extra = curr_hdr->size - req_size;
+      }
+      else if(curr_hdr->size - req_size < extra) {
+        best_fit = curr_hdr;
+        extra = curr_hdr->size - req_size;
+      }
+    }
+    curr_hdr = curr_hdr->next;
+  } while(curr_hdr != first_hdr);
+
+  return best_fit;
 }
 
 /**
@@ -287,13 +336,14 @@ Header *best_fit(size_t size)
  * @pre first_arena != NULL
  * @post predecessor->next == hdr
  */
+ /* NOT USED, ALREADY HAVE find_prev_header(Header *hdr);
 static
 Header *hdr_get_prev(Header *hdr)
 {
     // FIXME
     (void)hdr;
     return NULL;
-}
+}*/
 
 /**
  * Allocate memory. Use best-fit search of available block.
@@ -302,9 +352,9 @@ Header *hdr_get_prev(Header *hdr)
  */
 void *mmalloc(size_t size)
 {
-    // FIXME
-    (void)size;
-    return NULL;
+    assert(size > 0);
+
+    Header *best_fit = best_fit(size);
 }
 
 /**
