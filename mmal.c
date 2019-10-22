@@ -216,6 +216,7 @@ static
 Header *hdr_split(Header *hdr, size_t req_size)
 {
     assert(hdr->size >= req_size + 2*sizeof(Header));
+    //TODO zarovnani
 
     Header *created_hdr = hdr + sizeof(Header) + req_size; //lets created_hdr be at the right adress After
     //hdr's data and hdr header
@@ -315,41 +316,6 @@ Header *best_fit(size_t req_size)
 
   return best_fit;
 }
-/*TODO DELETE
-Header *best_fit(size_t req_size)
-{
-  //TODOO - chybí zarovnání na pages
-  assert(req_size > 0);
-
-  if(first_arena == NULL) return NULL;
-
-  Header *best_fit = NULL;
-  size_t extra;
-  Header *curr_hdr = find_first_header();
-  Header *first_hdr = curr_hdr;
-
-  do {
-    if(((curr_hdr->size - curr_hdr->asize) > (sizeof(Header) + req_size)) || (curr_hdr->asize == 0 && curr_hdr->size < req_size)) {
-      //je-li za aktualnim headerem dost mista na jeho data, dalsi header, pozadovana data
-      if(best_fit == NULL) {//prvni nalezeny blok
-        if(curr_hdr->asize == 0) extra = curr_hdr->size;
-        else extra = curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size;
-        //stores extra space to extra
-        best_fit = curr_hdr;
-      }
-      else if(((curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size) < extra) || (curr_hdr->asize == 0 && (curr_hdr->size - req_size) < extra)) {
-        //already found fit before, but this is better fit
-        if(curr_hdr->asize == 0) extra = curr_hdr->size;
-        else extra = curr_hdr->size - curr_hdr->asize - sizeof(Header) - req_size;
-        //stores extra space to extra
-        best_fit = curr_hdr;
-      }
-    }
-    curr_hdr = curr_hdr->next;
-  } while(curr_hdr != first_hdr);
-
-  return best_fit;
-}*/
 
 void add_size_to_first(Arena *arena)
 {
