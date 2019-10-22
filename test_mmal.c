@@ -62,6 +62,7 @@ int main()
      *   +-----+------+----+------+----------------------------+
      *       p1-------^
      */
+    
     assert(first_arena != NULL);
     assert(first_arena->next == NULL);
     assert(first_arena->size > 0);
