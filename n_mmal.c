@@ -32,7 +32,7 @@ struct header {
     size_t size;
 
     /**
-     * Size of block in bytes allocated for program. asize=0 means the block 
+     * Size of block in bytes allocated for program. asize=0 means the block
      * is not used by a program.
      */
     size_t asize;
@@ -73,9 +73,9 @@ Arena *first_arena = NULL;
 static
 size_t allign_page(size_t size)
 {
-    // FIXME
-    (void)size;
-    return size;
+    if(size == 0) return 0;
+    size_t new_size = ((size - 1) / PAGE_SIZE + 1) * PAGE_SIZE;
+    return new_size;
 }
 
 /**
@@ -95,9 +95,56 @@ size_t allign_page(size_t size)
 static
 Arena *arena_alloc(size_t req_size)
 {
-    // FIXME
-    (void)req_size;
-    return NULL;
+    assert(req_size > sizeof(Arena) + sizeof(Header));
+
+    size_t al_size = align_page(req_size+sizeof(Arena)+sizeof(Header));
+    Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+    if(arena == MAP_FAILED) return NULL;
+
+    arena->next = NULL;
+    arena->size = al_size;
+    return arena;
+}
+
+static
+Header *find_first_header()
+{
+  Header *first = (void *) first_arena + sizeof(Arena);
+  return first;
+}
+
+static
+Header *find_prev_header(Header *hdr)
+{
+  assert(first_arena != NULL);
+
+  Header *curr_hdr = hdr;
+  while(curr_hdr->next != hdr) curr_hdr = curr_hdr->next;
+  return curr_hdr;
+}
+
+static
+Header *find_last_header()
+{
+  Header *first = find_first_header();
+  Header *last = find_prev_header(first);
+  return last;
+}
+
+static
+Header *find_first_in_arena(Arena *arena)
+{
+  Header *first_in_arena = (void *) arena + sizeof(Arena);
+  return first_in_arena;
+}
+
+static
+Arena *find_last_arena()
+{
+  Arena *last = first_arena;
+  while(last->next != NULL) last = last->next;
+  return last;
 }
 
 /**
@@ -107,8 +154,13 @@ Arena *arena_alloc(size_t req_size)
 static
 void arena_append(Arena *a)
 {
-    // FIXME
-    (void)a;
+    if(first_arena == NULL) {
+      first_arena = a;
+    }
+    else {
+      Arena *last_arena = find_last_arena();
+      last_arena->next = a;
+    }
 }
 
 /**
@@ -229,7 +281,7 @@ Header *best_fit(size_t size)
 }
 
 /**
- * Search the header which is the predecessor to the hdr. Note that if 
+ * Search the header which is the predecessor to the hdr. Note that if
  * @param hdr       successor of the search header
  * @return pointer to predecessor, hdr if there is just one header.
  * @pre first_arena != NULL
