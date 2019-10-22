@@ -312,7 +312,7 @@ Header *best_fit(size_t size)
 
   Header *best_fit_hdr = NULL;
   Header *first_hdr = find_first_header();
-  Header *curr_hdr;
+  Header *curr_hdr = first_hdr;
   size_t extra;
 
   do {
@@ -357,8 +357,8 @@ Header *hdr_get_prev(Header *hdr)
 void *mmalloc(size_t size)
 {
     assert(size > 0);
-
     Header *best_fit_hdr = best_fit(size);
+
     if(best_fit_hdr == NULL) {
       //no fit found, new arena needed
       Arena *new_arena = arena_alloc(size);
@@ -385,8 +385,6 @@ void *mmalloc(size_t size)
 
     if(hdr_should_split(best_fit_hdr, size)) hdr_split(best_fit_hdr, size);
     best_fit_hdr->asize = size;
-
-    debug_arenas();
 
     return best_fit_hdr;
 }
