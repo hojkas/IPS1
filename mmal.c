@@ -114,6 +114,7 @@ Header *find_prev_header(Header *hdr)
 Header *find_last_header()
 {
   Header *first = find_first_header();
+  if(first->next == NULL) return NULL; //for first header not yet inicialized
   Header *last = find_prev_header(first);
   return last;
 }
