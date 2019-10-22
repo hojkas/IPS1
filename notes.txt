@@ -1,6 +1,6 @@
 void +mmaloc()
 -bude potřeba spousta dalších pomocných fcí
--hodnocení - čím dál náročnější testy, podle toho, v který moment to spadne, budou body 
+-hodnocení - čím dál náročnější testy, podle toho, v který moment to spadne, budou body
 
 
 vytvoříme arénu
@@ -30,7 +30,7 @@ size - velikost, kolik je reálně alokováno
 |...... ~~~~|
  <----> požadovaný prostor na data (asize)
  <---------> vytvořený prostor (size)
- 
+
  skutečnou velikost size získáme pomocí funkce align (tu musíme vytvořit, libovolná délka)
  (obvykle se to zarovnává na délku největší ... položky struktury? struktury? NEBO na velikost v našem případě headeru (8B?)
  -> dělejme align na sizeof(ukazatel)!!!
@@ -91,8 +91,18 @@ header
 arena
 	arena *next;
 	size_t size; <- velikost areny
-	
+
 tuna funkcí, popsáno v kostře (at least I fucking hope so)
 
-
-
+size_t allign_page(size_t size)
+size_t allign_data(size_t size)
+Arena *arena_alloc(size_t req_size)
+Header *find_first_header()
+Header *find_last_header()
+Header *find_first_in_arena(Arena *arena)
+Arena *find_last_arena()
+void hdr_ctor(Header *hdr, size_t size)
+Header *hdr_split(Header *hdr, size_t req_size)
+bool hdr_can_merge(Header *left, Header *right)
+void hdr_merge(Header *left, Header *right)
+Header *best_fit(size_t req_size)
