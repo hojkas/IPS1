@@ -84,7 +84,7 @@ Arena *arena_alloc(size_t req_size)
 {
     assert(req_size > sizeof(Arena) + sizeof(Header));
 
-    size_t al_size = req_size+sizeof(Arena);
+    size_t al_size = align_page(req_size+sizeof(Arena)+sizeof(Header));
     Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if(arena == MAP_FAILED) return NULL;
@@ -276,7 +276,7 @@ void debug_arenas()
     curr_arena = curr_arena->next;
   }
   printf("-----\nHeader debug:\n-----\n");
-  for(int i = 0; curr_header->next != find_first_header(); i++) {
+  for(int i = 0; (curr_header->next != find_first_header()) || i == 0; i++) {
     printf("%d. header - %ld, %ld, %p\n", i, curr_header->size, curr_header->asize, curr_header->next);
     curr_header = curr_header->next;
   }
@@ -338,12 +338,12 @@ void add_size_to_first(Arena *arena)
 void *mmalloc(size_t size)
 {
   assert(size > 0);
-  size_t al_size = align_page(size);
+  //size_t al_size = align_page(size);
   if(first_arena == NULL) {
-    first_arena = arena_alloc(al_size);
+    first_arena = arena_alloc(size);
     if(first_arena == NULL) return NULL; //alocation failed
     Header *first_hdr = find_first_header();
-    hdr_ctor(first_hdr, al_size);
+    hdr_ctor(first_hdr, (first_arena->size - sizeof(Arena) - sizeof(Header)));
     add_size_to_first(first_arena);
     first_hdr->next = first_hdr;
   }
