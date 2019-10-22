@@ -36,6 +36,7 @@ void debug_arenas()
     for (int i = 1; a; i++)
     {
         debug_arena(a, i);
+        a = a->next;
     }
     printf("NULL\n");
 }
