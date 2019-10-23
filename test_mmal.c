@@ -173,6 +173,8 @@ int main()
     debug_arenas();
 
     /***********************************************************************/
+    printf("Tady to spadne, ale to je proto, že ještě nemáme realloc, není to vadné free\n");
+
     mfree(p4);
 
     printf("\nALL THAT SHOULD WORK WORKS!\n");
