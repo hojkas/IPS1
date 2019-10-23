@@ -175,5 +175,7 @@ int main()
     /***********************************************************************/
     mfree(p4);
 
+    printf("\nALL THAT SHOULD WORK WORKS!\n");
+
     return 0;
 }
