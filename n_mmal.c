@@ -81,6 +81,14 @@ size_t allign_page(size_t size)
     return new_size;
 }
 
+static
+size_t align_data(size_t size)
+{
+    if(size == 0) return 0;
+    size_t new_size = ((size - 1) / sizeof(size_t) + 1) * sizeof(size_t);
+    return new_size;
+}
+
 /**
  * Allocate a new arena using mmap.
  * @param req_size requested size in bytes. Should be alligned to PAGE_SIZE.
@@ -383,7 +391,7 @@ void *mmalloc(size_t size)
       best_fit_hdr = first_in_new;
     }
 
-    if(hdr_should_split(best_fit_hdr, size)) hdr_split(best_fit_hdr, size);
+    if(hdr_should_split(best_fit_hdr, align_data(size))) hdr_split(best_fit_hdr, align_data(size));
     best_fit_hdr->asize = size;
 
     void* p = (void *) best_fit_hdr + sizeof(Header);
