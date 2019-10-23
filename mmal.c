@@ -7,13 +7,20 @@
 #include "mmal.h"
 #include <sys/mman.h> // mmap
 #include <stdbool.h> // bool
-#include <assert.h> //used for assert
+#include <assert.h> // assert
+#include <string.h> // memcpy
 
-#include<stdio.h> //TODO delete
+//TODO delete
+#include<stdio.h>
 
 #ifdef NDEBUG
 /**
  * The structure header encapsulates data of a single memory block.
+ *   ---+------+----------------------------+---
+ *      |Header|DDD not_free DDDDD...free...|
+ *   ---+------+-----------------+----------+---
+ *             |-- Header.asize -|
+ *             |-- Header.size -------------|
  */
 typedef struct header Header;
 struct header {
@@ -36,6 +43,14 @@ struct header {
 
 /**
  * The arena structure.
+ *   /--- arena metadata
+ *   |     /---- header of the first block
+ *   v     v
+ *   +-----+------+-----------------------------+
+ *   |Arena|Header|.............................|
+ *   +-----+------+-----------------------------+
+ *
+ *   |--------------- Arena.size ---------------|
  */
 typedef struct arena Arena;
 struct arena {
@@ -49,9 +64,9 @@ struct arena {
     size_t size;
 };
 
-#define PAGE_SIZE 128*1024
+#define PAGE_SIZE (128*1024)
 
-#endif
+#endif // NDEBUG
 
 Arena *first_arena = NULL;
 
@@ -59,9 +74,18 @@ Arena *first_arena = NULL;
  * Return size alligned to PAGE_SIZE
  */
 static
-size_t align_page(size_t size)
+size_t allign_page(size_t size)
 {
-    size_t new_size = ((size - 1) / PAGE_SIZE + 1) * PAGE_SIZE; //counts wrong for <= 0, but can those numbers get in here?
+    if(size == 0) return 0;
+    size_t new_size = ((size - 1) / PAGE_SIZE + 1) * PAGE_SIZE;
+    return new_size;
+}
+
+static
+size_t align_data(size_t size)
+{
+    if(size == 0) return 0;
+    size_t new_size = ((size - 1) / sizeof(size_t) + 1) * sizeof(size_t);
     return new_size;
 }
 
@@ -84,7 +108,7 @@ Arena *arena_alloc(size_t req_size)
 {
     assert(req_size > sizeof(Arena) + sizeof(Header));
 
-    size_t al_size = align_page(req_size+sizeof(Arena)+sizeof(Header));
+    size_t al_size = allign_page(req_size);
     Arena *arena = mmap(NULL, al_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     if(arena == MAP_FAILED) return NULL;
@@ -111,6 +135,7 @@ Header *find_prev_header(Header *hdr)
   return curr_hdr;
 }
 
+static
 Header *find_last_header()
 {
   Header *first = find_first_header();
@@ -119,19 +144,20 @@ Header *find_last_header()
   return last;
 }
 
+static
 Header *find_first_in_arena(Arena *arena)
 {
   Header *first_in_arena = (void *) arena + sizeof(Arena);
   return first_in_arena;
 }
 
+static
 Arena *find_last_arena()
 {
   Arena *last = first_arena;
   while(last->next != NULL) last = last->next;
   return last;
 }
-
 
 /**
  * Appends a new arena to the end of the arena list.
@@ -148,7 +174,6 @@ void arena_append(Arena *a)
       last_arena->next = a;
     }
 }
-
 
 /**
  * Header structure constructor (alone, not used block).
@@ -183,14 +208,14 @@ void hdr_ctor(Header *hdr, size_t size)
 static
 bool hdr_should_split(Header *hdr, size_t size)
 {
-    // FIXME
-    (void)hdr;
-    (void)size;
+    assert(hdr->asize == 0);
     assert(size > 0);
+
+    if(hdr->size >= size + 2*sizeof(Header)) return true;
     return false;
 }
 
- /**
+/**
  * Splits one block in two.
  * @param hdr       pointer to header of the big block
  * @param req_size  requested size of data in the (left) block.
@@ -216,18 +241,15 @@ bool hdr_should_split(Header *hdr, size_t size)
 static
 Header *hdr_split(Header *hdr, size_t req_size)
 {
-    assert(hdr->size >= req_size + 2*sizeof(Header));
-    //TODO zarovnani
+    assert (hdr->size >= req_size + 2*sizeof(Header));
 
-    Header *created_hdr = hdr + sizeof(Header) + req_size; //lets created_hdr be at the right adress After
-    //hdr's data and hdr header
-    hdr_ctor(created_hdr, (hdr->size - req_size - sizeof(Header)));
-
-    created_hdr->next = hdr->next;
-    hdr->next = created_hdr;
+    Header *new_hdr = hdr + req_size + sizeof(Header);
+    hdr_ctor(new_hdr, (hdr->size - req_size - sizeof(Header)));
+    new_hdr->next = hdr->next;
+    hdr->next = new_hdr;
     hdr->size = req_size;
 
-    return created_hdr;
+    return new_hdr;
 }
 
 /**
@@ -271,14 +293,14 @@ void debug_arenas()
   Header *curr_header = find_first_header();
   Arena *curr_arena = first_arena;
   printf("------\n");
-  printf("Arena debug:\n------\n");
+  printf("Arena debug: (size, it, end of arena)\n------\n");
   for(int i = 0; curr_arena != NULL; i++) {
-    printf("%d. arena - %ld\n", i, curr_arena->size);
+    printf("%d. arena - %ld, %p, %p\n", i, curr_arena->size, curr_arena, curr_arena+curr_arena->size);
     curr_arena = curr_arena->next;
   }
-  printf("-----\nHeader debug:\n-----\n");
-  for(int i = 0; (curr_header->next != find_first_header()) || i == 0; i++) {
-    printf("%d. header - %ld, %ld, %p\n", i, curr_header->size, curr_header->asize, curr_header->next);
+  printf("-----\nHeader debug: (size, asize, it, next)\n-----\n");
+  for(int i = 0; (curr_header != find_first_header()) || i == 0; i++) {
+    printf("%d. header - %ld, %ld, %p, %p\n", i, curr_header->size, curr_header->asize, curr_header, curr_header->next);
     curr_header = curr_header->next;
   }
   printf("------\n");
@@ -290,101 +312,106 @@ void debug_arenas()
  * @return pointer to the header of the block or NULL if no block is available.
  * @pre size > 0
  */
-Header *best_fit(size_t req_size)
+static
+Header *best_fit(size_t size)
 {
   assert(size > 0);
   if(first_arena == NULL) return NULL;
 
-  Header *best_fit = NULL;
+  Header *best_fit_hdr = NULL;
   Header *first_hdr = find_first_header();
-  Header *curr_hdr;
+  Header *curr_hdr = first_hdr;
   size_t extra;
 
   do {
     if(curr_hdr->asize == 0) {
       //block is free, can be used for alocation
-      if(best_fit == NULL) {
-        best_fit = curr_hdr;
-        extra = curr_hdr->size - req_size;
+      if(best_fit_hdr == NULL) {
+        best_fit_hdr = curr_hdr;
+        extra = curr_hdr->size - size;
       }
-      else if(curr_hdr->size - req_size < extra) {
-        best_fit = curr_hdr;
-        extra = curr_hdr->size - req_size;
+      else if(curr_hdr->size - size < extra) {
+        best_fit_hdr = curr_hdr;
+        extra = curr_hdr->size - size;
       }
     }
     curr_hdr = curr_hdr->next;
   } while(curr_hdr != first_hdr);
 
-  return best_fit;
+  return best_fit_hdr;
 }
 
-void add_size_to_first(Arena *arena)
+/**
+ * Search the header which is the predecessor to the hdr. Note that if
+ * @param hdr       successor of the search header
+ * @return pointer to predecessor, hdr if there is just one header.
+ * @pre first_arena != NULL
+ * @post predecessor->next == hdr
+ */
+ /* NOT USED, ALREADY HAVE find_prev_header(Header *hdr);
+static
+Header *hdr_get_prev(Header *hdr)
 {
-  Header* first = find_first_in_arena(arena);
-  first->size = arena->size - sizeof(Arena) - sizeof(Header);
-}
+    // FIXME
+    (void)hdr;
+    return NULL;
+}*/
 
 /**
  * Allocate memory. Use best-fit search of available block.
  * @param size      requested size for program
- * @return pointer to allocated data or NULL if error.
+ * @return pointer to allocated data or NULL if error or size = 0.
  */
 void *mmalloc(size_t size)
 {
-  assert(size > 0);
-  //size_t al_size = align_page(size);
-  if(first_arena == NULL) {
-    first_arena = arena_alloc(size);
-    if(first_arena == NULL) return NULL; //alocation failed
-    Header *first_hdr = find_first_header();
-    hdr_ctor(first_hdr, (first_arena->size - sizeof(Arena) - sizeof(Header)));
-    add_size_to_first(first_arena);
-    first_hdr->next = first_hdr;
-  }
+    assert(size > 0);
+    Header *best_fit_hdr = best_fit(size);
 
-  Header *aloc_here = best_fit(size); //tady chyba
+    if(best_fit_hdr == NULL) {
+      //no fit found, new arena needed
+      Arena *new_arena = arena_alloc(size);
+      if(new_arena == NULL) return NULL; //alocation failed
 
-  if(aloc_here == NULL) {
-    //no space found -> need new arena
-    Arena *last_arena = find_last_arena();
-    last_arena->next = arena_alloc(size);
-    if(last_arena->next == NULL) return NULL; //alocation failed
+      arena_append(new_arena);
+      Header *first_in_new = (void *) new_arena + sizeof(Arena);
+      Header *last_hdr = find_last_header();
+      hdr_ctor(first_in_new, new_arena->size - sizeof(Arena) - sizeof(Header));
 
-    last_arena = last_arena->next;
-    hdr_ctor(find_first_in_arena(last_arena), size);
-    add_size_to_first(last_arena);
+      //linking new header to the rest
+      if(last_hdr == NULL) {
+        //no linked headers yet
+        first_in_new->next = first_in_new;
+      }
+      else {
+        Header *first_hdr = find_first_header();
+        last_hdr->next = first_in_new;
+        first_in_new->next = first_hdr;
+      }
+      //marks new one as best fit
+      best_fit_hdr = first_in_new;
+    }
 
-    Header *last_header = find_last_header();
-    last_header->next = find_first_in_arena(last_arena); //links header in new arena to prev last one
-    last_header = last_header->next; //marks last_header as the last
-    last_header->next = find_first_header(); //links new header to first one, forming cycle
-    aloc_here = last_header; //given that no space was adequate to get here, only place to alloc is new o
-  }
+    if(hdr_should_split(best_fit_hdr, align_data(size))) hdr_split(best_fit_hdr, align_data(size));
+    best_fit_hdr->asize = size;
 
-  //at this point, we have aloc_here header where we want to aloc (can be new header
-  //with asize 0 OR header meant to be split to make that space)
+    void* p = (void *) best_fit_hdr + sizeof(Header);
 
-  if(aloc_here->asize != 0) {
-    aloc_here = hdr_split(aloc_here, aloc_here->asize);
-  }
-  aloc_here->asize = size;
-
-  hdr_split(aloc_here, aloc_here->asize);
-
-  debug_arenas();
-  //DOES WEIRD SHIT WITH HEADERS
-
-  return aloc_here;
+    return p;
 }
 
 /**
  * Free memory block.
  * @param ptr       pointer to previously allocated data
+ * @pre ptr != NULL
  */
 void mfree(void *ptr)
 {
-    (void)ptr;
-    // FIXME
+  /*
+    assert(ptr != NULL);
+
+    Header *to_free = (void *) ptr - sizeof(Header);
+  */
+  (void) *ptr;
 }
 
 /**
