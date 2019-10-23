@@ -406,12 +406,14 @@ void *mmalloc(size_t size)
  */
 void mfree(void *ptr)
 {
-  /*
     assert(ptr != NULL);
 
     Header *to_free = (void *) ptr - sizeof(Header);
-  */
-  (void) *ptr;
+    to_free->asize = 0;
+
+    if(hdr_can_merge(to_free, to_free->next)) hdr_merge(to_free, to_free->next);
+    if(to_free->next != to_free)
+      if(hdr_can_merge(find_prev_header(to_free), to_free)) hdr_merge(find_prev_header(to_free), to_free);
 }
 
 /**
