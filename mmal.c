@@ -369,7 +369,7 @@ void *mmalloc(size_t size)
 
     if(best_fit_hdr == NULL) {
       //no fit found, new arena needed
-      Arena *new_arena = arena_alloc(size);
+      Arena *new_arena = arena_alloc(size + sizeof(Arena) + sizeof(Header));
       if(new_arena == NULL) return NULL; //alocation failed
 
       arena_append(new_arena);
@@ -411,9 +411,8 @@ void mfree(void *ptr)
     Header *to_free = (void *) ptr - sizeof(Header);
     to_free->asize = 0;
 
-    if(hdr_can_merge(to_free, to_free->next)) hdr_merge(to_free, to_free->next);
-    if(to_free->next != to_free)
-      if(hdr_can_merge(find_prev_header(to_free), to_free)) hdr_merge(find_prev_header(to_free), to_free);
+    if(to_free->next != to_free) if(hdr_can_merge(to_free, to_free->next)) hdr_merge(to_free, to_free->next);
+    if(to_free->next != to_free) if(hdr_can_merge(find_prev_header(to_free), to_free)) hdr_merge(find_prev_header(to_free), to_free);
 }
 
 /**
@@ -429,4 +428,7 @@ void *mrealloc(void *ptr, size_t size)
     (void)ptr;
     (void)size;
     return NULL;
+/*
+    Header *to_realloc = (void *) ptr - sizeof(Header);
+    if (size <= )*/
 }
