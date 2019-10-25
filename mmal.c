@@ -439,7 +439,8 @@ void *mrealloc(void *ptr, size_t size)
     }
 
     void *move_here = mmalloc(size);
+    if(move_here == NULL) return NULL;
     memcpy(move_here, ptr, size);
-    free(ptr);
+    free((void *) to_realloc - sizeof(Header));
     return move_here;
 }
