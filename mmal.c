@@ -1,7 +1,7 @@
 /**
  * Implementace My MALloc
  * Demonstracni priklad pro 1. ukol IPS/2019
- * Ales Smrcka
+ * Iveta Strnadová, xstrna14
  */
 
 #include "mmal.h"
