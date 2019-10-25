@@ -162,7 +162,7 @@ int main()
      */
 
     /***********************************************************************/
-    //p4 = mrealloc(p4, PAGE_SIZE*2 + 2);
+    p4 = mrealloc(p4, PAGE_SIZE + 2);
     /**
      *                    p4
      *       +-----+------+-----------------------------+------+---+
@@ -173,7 +173,7 @@ int main()
     debug_arenas();
 
     /***********************************************************************/
-    printf("Tady to spadne, ale to je proto, že ještě nemáme realloc, není to vadné free\n");
+    printf("Our pointer = %p\n", p4);
 
     mfree(p4);
 

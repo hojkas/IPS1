@@ -424,11 +424,22 @@ void mfree(void *ptr)
  */
 void *mrealloc(void *ptr, size_t size)
 {
-    // FIXME
-    (void)ptr;
-    (void)size;
-    return NULL;
-/*
+    assert(ptr != NULL);
+    assert(size > 0);
+
     Header *to_realloc = (void *) ptr - sizeof(Header);
-    if (size <= )*/
+    size_t new_size = align_data(size);
+
+    if (new_size <= to_realloc->size) {
+      //if the data is the same or smaller, so we can just resize this block
+      to_realloc->size = new_size;
+      if(hdr_should_split(to_realloc, to_realloc->size)) hdr_split(to_realloc, to_realloc->size);
+      to_realloc->asize = size;
+      return ptr;
+    }
+
+    void *move_here = mmalloc(size);
+    memcpy(move_here, ptr, size);
+    free(ptr);
+    return move_here;
 }
