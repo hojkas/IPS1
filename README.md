@@ -1,7 +1,11 @@
 # IPS1
+Zimní 2019/2020
 
-mmal hopefully working
+Upravená kostra poskytnutá zadávajícím.
 
-free hopefully working
+Body: 9/10
 
-realloc not working at all
+**Stav projektu:**
+
+- mmal a free s určitou úspěšností fungují
+- realloc nefunguje vůbec
